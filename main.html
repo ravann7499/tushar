@@ -1,0 +1,694 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>JioTV Channels</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Arial, Helvetica, sans-serif;
+            background: #0b0b0f;
+            color: #fff;
+        }
+
+        /* Header */
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: #111116;
+            border-bottom: 1px solid #25252d;
+            padding: 16px 20px;
+        }
+
+        .header-inner {
+            max-width: 1400px;
+            margin: auto;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            justify-content: space-between;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: 700;
+            white-space: nowrap;
+        }
+
+        .logo span {
+            color: #e50914;
+        }
+
+        /* Search */
+        .search-box {
+            width: 100%;
+            max-width: 450px;
+        }
+
+        .search-box input {
+            width: 100%;
+            background: #1b1b22;
+            border: 1px solid #303039;
+            border-radius: 8px;
+            padding: 12px 15px;
+            color: #fff;
+            outline: none;
+            font-size: 14px;
+        }
+
+        .search-box input:focus {
+            border-color: #e50914;
+        }
+
+        /* Filters */
+        .filters {
+            max-width: 1400px;
+            margin: 20px auto 5px;
+            padding: 0 20px;
+        }
+
+        .filter-row {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            padding-bottom: 5px;
+        }
+
+        .filter-row::-webkit-scrollbar {
+            display: none;
+        }
+
+        .filter-btn {
+            flex-shrink: 0;
+            border: 1px solid #303039;
+            background: #17171d;
+            color: #ccc;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: 0.2s;
+        }
+
+        .filter-btn:hover,
+        .filter-btn.active {
+            background: #e50914;
+            border-color: #e50914;
+            color: #fff;
+        }
+
+        /* Channel count */
+        .channel-info {
+            max-width: 1400px;
+            margin: 18px auto 12px;
+            padding: 0 20px;
+            color: #999;
+            font-size: 14px;
+        }
+
+        /* Grid */
+        .channel-grid {
+            max-width: 1400px;
+            margin: auto;
+            padding: 0 20px 40px;
+
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+            gap: 16px;
+        }
+
+        /* Card */
+        .channel-card {
+            background: #15151b;
+            border: 1px solid #24242c;
+            border-radius: 10px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .channel-card:hover {
+            transform: translateY(-4px);
+            border-color: #44444f;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.35);
+        }
+
+        .channel-logo {
+            width: 100%;
+            height: 130px;
+            background: #fff;
+
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            position: relative;
+        }
+
+        .channel-logo img {
+            width: 80%;
+            height: 80%;
+            object-fit: contain;
+        }
+
+        .channel-logo .placeholder {
+            color: #777;
+            font-size: 13px;
+        }
+
+        .channel-details {
+            padding: 11px;
+        }
+
+        .channel-name {
+            font-size: 14px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .channel-meta {
+            margin-top: 7px;
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .tag {
+            font-size: 10px;
+            color: #aaa;
+            background: #22222a;
+            padding: 4px 7px;
+            border-radius: 4px;
+        }
+
+        .catchup {
+            color: #8ee28e;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 70px 20px;
+            color: #aaa;
+        }
+
+        .spinner {
+            width: 35px;
+            height: 35px;
+            border: 3px solid #333;
+            border-top-color: #e50914;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* Empty */
+        .empty {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 70px 20px;
+            color: #888;
+        }
+
+        /* Mobile */
+        @media (max-width: 600px) {
+
+            header {
+                padding: 12px 15px;
+            }
+
+            .header-inner {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+            }
+
+            .logo {
+                text-align: center;
+                font-size: 21px;
+            }
+
+            .search-box {
+                max-width: none;
+            }
+
+            .filters {
+                padding: 0 15px;
+            }
+
+            .channel-info {
+                padding: 0 15px;
+            }
+
+            .channel-grid {
+                padding: 0 12px 30px;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 10px;
+            }
+
+            .channel-logo {
+                height: 105px;
+            }
+
+            .channel-details {
+                padding: 9px;
+            }
+
+            .channel-name {
+                font-size: 13px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <div class="header-inner">
+
+        <div class="logo">
+            <span>Jio</span>TV Channels
+        </div>
+
+        <div class="search-box">
+            <input
+                type="search"
+                id="search"
+                placeholder="Search channels..."
+                autocomplete="off"
+            >
+        </div>
+
+    </div>
+</header>
+
+
+<div class="filters">
+
+    <div class="filter-row" id="genreFilters">
+        <button class="filter-btn active" data-genre="all">
+            All
+        </button>
+    </div>
+
+</div>
+
+
+<div class="channel-info">
+    <span id="channelCount">Loading channels...</span>
+</div>
+
+
+<div id="loading" class="loading">
+    <div class="spinner"></div>
+    Loading channels...
+</div>
+
+
+<div id="channelGrid" class="channel-grid"></div>
+
+
+<script>
+
+const DATA_URL =
+    "https://gist.githubusercontent.com/mitthu786/6719418610aa81997e72d6c27a6a2e39/raw/tsjiotvnew.json";
+
+const PLAY_PAGE = "play.html";
+
+let channels = [];
+let activeGenre = "all";
+let searchText = "";
+
+
+/*
+|--------------------------------------------------------------------------
+| Load JSON
+|--------------------------------------------------------------------------
+*/
+
+async function loadChannels() {
+
+    const loading = document.getElementById("loading");
+
+    try {
+
+        const response = await fetch(DATA_URL, {
+            cache: "no-store"
+        });
+
+        if (!response.ok) {
+            throw new Error("HTTP " + response.status);
+        }
+
+        const data = await response.json();
+
+        if (!Array.isArray(data)) {
+            throw new Error("Invalid JSON format");
+        }
+
+        channels = data;
+
+        loading.style.display = "none";
+
+        createGenreFilters();
+        renderChannels();
+
+    } catch (error) {
+
+        console.error(error);
+
+        loading.innerHTML = `
+            <div style="font-size:35px;margin-bottom:10px;">⚠️</div>
+            <div>Unable to load channels.</div>
+            <div style="font-size:12px;margin-top:8px;color:#666;">
+                Please try again later.
+            </div>
+        `;
+    }
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Create Genre Filters
+|--------------------------------------------------------------------------
+*/
+
+function createGenreFilters() {
+
+    const container = document.getElementById("genreFilters");
+
+    const genres = [
+        ...new Set(
+            channels
+                .map(channel => channel.genre)
+                .filter(Boolean)
+        )
+    ].sort();
+
+    genres.forEach(genre => {
+
+        const button = document.createElement("button");
+
+        button.className = "filter-btn";
+
+        button.dataset.genre = genre;
+
+        button.textContent = genre;
+
+        button.addEventListener("click", () => {
+
+            activeGenre = genre;
+
+            document
+                .querySelectorAll(".filter-btn")
+                .forEach(btn => btn.classList.remove("active"));
+
+            button.classList.add("active");
+
+            renderChannels();
+        });
+
+        container.appendChild(button);
+    });
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Clean Image URL
+|--------------------------------------------------------------------------
+|
+| Supports both:
+|
+| https://example.com/logo.png
+|
+| and:
+|
+| [https://example.com/logo.png](https://example.com/logo.png)
+|
+|--------------------------------------------------------------------------
+*/
+
+function cleanImageUrl(url) {
+
+    if (!url) {
+        return "";
+    }
+
+    url = String(url).trim();
+
+    // Markdown image/link format
+    const markdown = url.match(
+        /^\[.*?\]\((https?:\/\/[^)]+)\)$/
+    );
+
+    if (markdown) {
+        return markdown[1];
+    }
+
+    // Remove accidental brackets
+    url = url.replace(/^\[/, "");
+    url = url.replace(/\]$/, "");
+
+    return url;
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Filter Channels
+|--------------------------------------------------------------------------
+*/
+
+function getFilteredChannels() {
+
+    return channels.filter(channel => {
+
+        const genreMatch =
+            activeGenre === "all" ||
+            String(channel.genre || "").toLowerCase() ===
+            activeGenre.toLowerCase();
+
+        const searchTarget = [
+            channel.name,
+            channel.link2,
+            channel.genre,
+            channel.lang
+        ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+
+        const searchMatch =
+            !searchText ||
+            searchTarget.includes(searchText);
+
+        return genreMatch && searchMatch;
+    });
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Render Channels
+|--------------------------------------------------------------------------
+*/
+
+function renderChannels() {
+
+    const grid = document.getElementById("channelGrid");
+    const count = document.getElementById("channelCount");
+
+    const filtered = getFilteredChannels();
+
+    count.textContent =
+        `${filtered.length} channel${filtered.length === 1 ? "" : "s"}`;
+
+    grid.innerHTML = "";
+
+    if (!filtered.length) {
+
+        grid.innerHTML = `
+            <div class="empty">
+                No channels found.
+            </div>
+        `;
+
+        return;
+    }
+
+    filtered.forEach(channel => {
+
+        const card = document.createElement("div");
+
+        card.className = "channel-card";
+
+        /*
+         * Open:
+         * play.html?id=CHANNEL_ID
+         */
+        card.addEventListener("click", () => {
+
+            if (!channel.id) return;
+
+            window.location.href =
+                PLAY_PAGE +
+                "?id=" +
+                encodeURIComponent(channel.id);
+        });
+
+
+        const imageUrl = cleanImageUrl(channel.img);
+
+        const name =
+            channel.link2 ||
+            channel.name ||
+            "Unknown Channel";
+
+        const genre =
+            channel.genre ||
+            "General";
+
+        const language =
+            channel.lang ||
+            "";
+
+
+        card.innerHTML = `
+
+            <div class="channel-logo">
+
+                ${
+                    imageUrl
+                    ?
+                    `<img
+                        src="${escapeHtml(imageUrl)}"
+                        alt="${escapeHtml(name)}"
+                        loading="lazy"
+                        onerror="this.style.display='none';this.nextElementSibling.style.display='block';"
+                    >`
+                    :
+                    ""
+                }
+
+                <div
+                    class="placeholder"
+                    style="${imageUrl ? "display:none" : ""}"
+                >
+                    No Logo
+                </div>
+
+            </div>
+
+            <div class="channel-details">
+
+                <div
+                    class="channel-name"
+                    title="${escapeHtml(name)}"
+                >
+                    ${escapeHtml(name)}
+                </div>
+
+                <div class="channel-meta">
+
+                    <span class="tag">
+                        ${escapeHtml(genre)}
+                    </span>
+
+                    ${
+                        language
+                        ?
+                        `<span class="tag">
+                            ${escapeHtml(language)}
+                        </span>`
+                        :
+                        ""
+                    }
+
+                    ${
+                        String(channel.catchup) === "1"
+                        ?
+                        `<span class="tag catchup">
+                            Catch-up
+                        </span>`
+                        :
+                        ""
+                    }
+
+                </div>
+
+            </div>
+        `;
+
+        grid.appendChild(card);
+    });
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Search
+|--------------------------------------------------------------------------
+*/
+
+document
+    .getElementById("search")
+    .addEventListener("input", function () {
+
+        searchText =
+            this.value.trim().toLowerCase();
+
+        renderChannels();
+    });
+
+
+/*
+|--------------------------------------------------------------------------
+| Basic HTML escaping
+|--------------------------------------------------------------------------
+*/
+
+function escapeHtml(value) {
+
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Start
+|--------------------------------------------------------------------------
+*/
+
+loadChannels();
+
+</script>
+
+</body>
+</html>
