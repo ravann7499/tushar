@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+
+    <link rel="shortcut icon" type="image/x-icon" href="">
+    <link rel="stylesheet" href="https://cdn.plyr.io/3.6.2/plyr.css" />
+    <link href="https://fonts.googleapis.com/css?family=Poppins|Quattrocento+Sans" rel="stylesheet" />
+
+    <script src="https://cdn.plyr.io/3.6.3/plyr.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js"></script>
+    <style>
+        html {
+            font-family: Poppins;
+            background: #000;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+        }
+
+        /* =========================
+           LOADING SCREEN
+        ========================= */
+
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            z-index: 9999;
+        }
+
+        .loading-text {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            margin: auto;
+            text-align: center;
+            width: 100%;
+            height: 100px;
+            line-height: 100px;
+        }
+
+        .loading-text span {
+            display: inline-block;
+            margin: 0 5px;
+            color: #00b3ff;
+            font-family: 'Quattrocento Sans', sans-serif;
+        }
+
+        .loading-text span:nth-child(1) {
+            animation: blur-text 1.5s 0s infinite linear alternate;
+        }
+        .loading-text span:nth-child(2) {
+            animation: blur-text 1.5s 0.2s infinite linear alternate;
+        }
+        .loading-text span:nth-child(3) {
+            animation: blur-text 1.5s 0.4s infinite linear alternate;
+        }
+        .loading-text span:nth-child(4) {
+            animation: blur-text 1.5s 0.6s infinite linear alternate;
+        }
+        .loading-text span:nth-child(5) {
+            animation: blur-text 1.5s 0.8s infinite linear alternate;
+        }
+        .loading-text span:nth-child(6) {
+            animation: blur-text 1.5s 1s infinite linear alternate;
+        }
+        .loading-text span:nth-child(7) {
+            animation: blur-text 1.5s 1.2s infinite linear alternate;
+        }
+
+        @keyframes blur-text {
+            0% {
+                filter: blur(0px);
+            }
+            100% {
+                filter: blur(4px);
+            }
+        }
+
+        /* =========================
+           VIDEO
+        ========================= */
+
+        video {
+            width: 100%;
+            height: 100vh;
+            background: #000;
+        }
+
+        /* =========================
+           PLYR
+        ========================= */
+
+        .plyr__video-wrapper::after {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            z-index: 10;
+            content: '';
+            height: 35px;
+            width: 35px;
+            background: url('') no-repeat;
+            background-size: 30px auto, auto;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- =========================
+         LOADING SCREEN
+    ========================= -->
+
+    <div class="loading" id="loading">
+        <div class="loading-text">
+            <span>L</span>
+            <span>O</span>
+            <span>A</span>
+            <span>D</span>
+            <span>I</span>
+            <span>N</span>
+            <span>G</span>
+        </div>
+    </div>
+
+    <!-- =========================
+         VIDEO PLAYER
+    ========================= -->
+
+    <video
+        hideControls="false"
+        autoplay
+        controls
+        crossorigin
+        playsinline>
+        <source type="application/x-mpegURL">
+    </video>
+
+    <script>
+        /* ============================================================
+           CONFIGURATION
+        ============================================================ */
+
+        const WAIT_TIME = 15; // kept for reference, but no timer used
+
+        /* ============================================================
+           ELEMENTS
+        ============================================================ */
+
+        const video = document.querySelector("video");
+
+        /* ============================================================
+           LOADING SCREEN – hide after 4s & enable controls
+        ============================================================ */
+
+        setTimeout(function() {
+            document.getElementById("loading").style.display = "none";
+            // Enable video controls immediately after loading screen
+            video.controls = true;
+            // Ensure autoplay attempts if possible
+            video.play().catch(e => console.log("Autoplay blocked, user interaction may be needed."));
+        }, 4000);
+
+        /* ============================================================
+           HLS PLAYER
+        ============================================================ */
+
+        document.addEventListener("DOMContentLoaded", () => {
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const streamId = urlParams.get("id");
+            const source = video.getElementsByTagName("source")[0];
+
+            /* --------------------------------------------
+               STREAM ID
+            -------------------------------------------- */
+
+            if (streamId) {
+                const m3u8Url = "https://hey-lookme.shop/live.php?id=" + encodeURIComponent(streamId);
+                source.src = m3u8Url;
+            } else {
+                console.error("No stream ID provided. Use ?id=STREAM_ID");
+                const loadingText = document.querySelector(".loading-text");
+                if (loadingText) {
+                    loadingText.innerHTML = '<span style="color:#ff4444;">NO STREAM ID</span>';
+                }
+                return;
+            }
+
+            /* --------------------------------------------
+               PLYR OPTIONS
+            -------------------------------------------- */
+
+            const plyrOptions = {};
+
+            /* --------------------------------------------
+               HLS.JS
+            -------------------------------------------- */
+
+            if (Hls.isSupported()) {
+                const config = { maxMaxBufferLength: 100 };
+                const hls = new Hls(config);
+                hls.loadSource(source.src);
+                hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                    const levels = hls.levels.map(e => e.height);
+                    plyrOptions.quality = {
+                        default: levels[0],
+                        options: levels,
+                        forced: true,
+                        onChange: (quality) => {
+                            window.hls.levels.forEach((level, index) => {
+                                if (level.height === quality) {
+                                    window.hls.currentLevel = index;
+                                }
+                            });
+                        }
+                    };
+                    new Plyr(video, plyrOptions);
+                });
+                hls.attachMedia(video);
+                window.hls = hls;
+            } else {
+                // Native HLS fallback
+                new Plyr(video, plyrOptions);
+            }
+        });
+    </script>
+
+</body>
+</html>
