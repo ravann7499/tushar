@@ -1,0 +1,829 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#000">
+  <meta name="referrer" content="no-referrer">
+  <title>tushar_stream · Live</title>
+  <script src="https://cdn.jsdelivr.net/npm/shaka-player@4.16.2/dist/shaka-player.ui.min.js"></script>
+  <style>
+    /* ================= iOS DESIGN TOKENS ================= */
+    :root{
+      --ios-blue:#0A84FF;
+      --ios-red:#FF453A;
+      --ios-orange:#FF9F0A;
+      --ios-bg:#000;
+      --ios-material:rgba(44,44,46,.72);
+      --ios-elevated:rgba(58,58,60,.72);
+      --ios-separator:rgba(84,84,88,.65);
+      --ios-text-primary:#fff;
+      --ios-text-secondary:rgba(235,235,245,.6);
+      --ios-text-tertiary:rgba(235,235,245,.3);
+      --ios-radius-lg:14px;
+      --ios-radius-sheet:12px;
+      --ease-sheet:cubic-bezier(.32,.72,0,1);
+      --safe-b:env(safe-area-inset-bottom,0px);
+    }
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+    html{height:100%;-webkit-text-size-adjust:100%;}
+    body{
+      width:100%;height:100%;min-height:100dvh;background:var(--ios-bg);
+      overflow:hidden;color:var(--ios-text-primary);
+      font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','SF Pro Display','Helvetica Neue','Segoe UI',Roboto,sans-serif;
+      -webkit-font-smoothing:antialiased;
+    }
+    button{font-family:inherit;cursor:pointer;-webkit-appearance:none;appearance:none;background:none;border:none;color:inherit;outline:none;}
+
+    /* ================= LOGO ================= */
+    .logo-btn{position:fixed;top:calc(10px + env(safe-area-inset-top,0px));left:10px;z-index:60;transition:opacity .2s,transform .2s;}
+    .logo-btn:active{opacity:.6;transform:scale(.94);}
+    .logo-btn img{height:32px;border-radius:8px;filter:drop-shadow(0 2px 8px rgba(0,0,0,.7));}
+
+    /* ================= iOS ALERT (popup + error) ================= */
+    .alert-scrim{
+      position:fixed;inset:0;z-index:99999;
+      background:rgba(0,0,0,.5);
+      -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+      display:flex;align-items:center;justify-content:center;padding:24px;
+      opacity:0;pointer-events:none;transition:opacity .28s ease;
+    }
+    .alert-scrim.visible{opacity:1;pointer-events:auto;}
+    .alert{
+      width:100%;max-width:270px;
+      background:var(--ios-material);
+      -webkit-backdrop-filter:blur(40px) saturate(180%);backdrop-filter:blur(40px) saturate(180%);
+      border-radius:var(--ios-radius-lg);
+      overflow:hidden;text-align:center;
+      box-shadow:0 12px 40px rgba(0,0,0,.5);
+      transform:scale(1.06);opacity:0;
+      transition:transform .3s var(--ease-sheet),opacity .3s;
+    }
+    .alert-scrim.visible .alert{transform:scale(1);opacity:1;}
+    .alert-icon{width:44px;height:44px;margin:20px auto 0;border-radius:11px;background:rgba(10,132,255,.16);display:flex;align-items:center;justify-content:center;}
+    .alert-icon svg{width:24px;height:24px;fill:var(--ios-blue);}
+    .alert-title{font-size:17px;font-weight:600;letter-spacing:-.2px;padding:16px 18px 2px;}
+    .alert-message{font-size:13px;line-height:1.45;color:var(--ios-text-secondary);padding:2px 18px 18px;}
+    .alert-message b{color:var(--ios-blue);font-weight:500;display:block;margin-top:6px;font-size:14px;}
+    .alert-actions{display:flex;flex-direction:column;}
+    .alert-actions>*+*{border-top:.5px solid var(--ios-separator);}
+    .alert-btn{
+      display:flex;align-items:center;justify-content:center;gap:6px;
+      height:44px;font-size:16px;color:var(--ios-blue);text-decoration:none;
+      transition:background .12s;
+    }
+    .alert-btn:active{background:rgba(255,255,255,.08);}
+    .alert-btn.bold{font-weight:600;}
+    .alert-btn svg{width:16px;height:16px;fill:var(--ios-blue);flex-shrink:0;}
+    .alert-retry{display:flex;align-items:center;justify-content:center;gap:7px;height:44px;font-size:14px;color:var(--ios-text-secondary);border-top:.5px solid var(--ios-separator);}
+    .alert-retry .dot{width:6px;height:6px;border-radius:50%;background:var(--ios-blue);animation:pulse 1.4s ease-in-out infinite;}
+    @keyframes pulse{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1.05)}}
+
+    /* ================= PLAYER ================= */
+    #player{position:fixed;inset:0;background:#000;user-select:none;-webkit-user-select:none;overflow:hidden;}
+    #vid{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;transform-origin:center center;transition:transform .3s ease;}
+
+    /* Loading — iOS activity indicator */
+    #overlay{
+      position:absolute;inset:0;z-index:10;background:var(--ios-bg);
+      display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+      transition:opacity .4s;
+    }
+    #overlay.gone{opacity:0;pointer-events:none;}
+    .spinner{
+      width:38px;height:38px;border-radius:50%;
+      border:3px solid rgba(255,255,255,.14);border-top-color:#fff;
+      animation:spin .85s linear infinite;
+    }
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .load-label{font-size:13px;font-weight:500;color:var(--ios-text-tertiary);letter-spacing:.1px;}
+
+    /* Buffering — compact iOS indicator */
+    #bufspin{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:8;pointer-events:none;display:none;}
+    #bufspin div{width:30px;height:30px;border-radius:50%;border:2.5px solid rgba(255,255,255,.14);border-top-color:#fff;animation:spin .85s linear infinite;}
+
+    /* ================= CENTER PLAY ================= */
+    #bigplay{position:absolute;inset:0;z-index:16;display:flex;align-items:center;justify-content:center;pointer-events:none;transition:opacity .2s ease,transform .2s ease;}
+    #bigplay.shown{pointer-events:auto;}
+    #bigplay.gone{opacity:0;pointer-events:none;transform:scale(.85);}
+    .bpbtn{
+      width:70px;height:70px;border-radius:50%;
+      background:rgba(255,255,255,.14);
+      -webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);
+      border:.5px solid rgba(255,255,255,.25);
+      display:flex;align-items:center;justify-content:center;
+      box-shadow:0 8px 32px rgba(0,0,0,.45);
+      transition:transform .18s var(--ease-sheet),background .18s;
+    }
+    .bpbtn:active{transform:scale(.88);background:rgba(255,255,255,.22);}
+    .bpbtn svg{width:28px;height:28px;margin-left:4px;fill:#fff;filter:drop-shadow(0 1px 3px rgba(0,0,0,.5));}
+
+    /* ================= CONTROLS — AVPlayer style ================= */
+    #ctrls{position:absolute;bottom:0;left:0;right:0;z-index:20;transition:opacity .3s ease,transform .3s ease;}
+    #ctrls.gone{opacity:0;pointer-events:none;transform:translateY(8px);}
+
+    /* iOS 16 scrubber */
+    #prog{margin:0 14px 6px;height:26px;display:flex;align-items:center;cursor:pointer;position:relative;}
+    .pt{position:relative;height:4px;width:100%;background:rgba(255,255,255,.22);border-radius:4px;overflow:visible;transition:height .15s var(--ease-sheet);}
+    #prog:hover .pt,#prog.drag .pt{height:8px;}
+    .pbf{position:absolute;left:0;top:0;height:100%;background:rgba(255,255,255,.34);border-radius:4px;width:0;}
+    .ppl{position:absolute;left:0;top:0;height:100%;background:#fff;border-radius:4px;width:0;}
+    .pth{
+      position:absolute;top:50%;left:0;width:15px;height:15px;background:#fff;border-radius:50%;
+      transform:translate(-50%,-50%);box-shadow:0 1px 5px rgba(0,0,0,.55);pointer-events:none;
+      transition:transform .15s var(--ease-sheet);opacity:0;
+    }
+    #prog:hover .pth,#prog.drag .pth{opacity:1;transform:translate(-50%,-50%) scale(1.15);}
+
+    /* Control bar — blurred scrim */
+    #crow{
+      display:flex;align-items:center;
+      padding:6px 12px calc(10px + var(--safe-b));gap:8px;
+      background:linear-gradient(to top,rgba(0,0,0,.75),rgba(0,0,0,.35) 70%,transparent);
+      -webkit-backdrop-filter:blur(20px) saturate(150%);backdrop-filter:blur(20px) saturate(150%);
+      transition:background .3s;
+    }
+
+    /* 44px-class round buttons */
+    .cb{
+      width:38px;height:38px;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;flex-shrink:0;
+      color:rgba(255,255,255,.92);padding:0;
+      transition:transform .15s var(--ease-sheet),color .15s,background .15s;
+    }
+    .cb:active{transform:scale(.85);color:#fff;}
+    .cb svg{display:block;}
+    .csp{flex:1;}
+
+    /* Live badge — Apple-style */
+    .live-pill{
+      display:flex;align-items:center;gap:5px;
+      padding:4px 9px 4px 8px;border-radius:6px;
+      background:rgba(255,69,58,.18);
+      font-size:11px;font-weight:700;letter-spacing:.4px;
+      color:var(--ios-red);flex-shrink:0;white-space:nowrap;cursor:default;
+      transition:background .2s,color .2s;
+    }
+    .ldot{width:5px;height:5px;border-radius:50%;background:var(--ios-red);animation:lblink 1.3s infinite;flex:none;}
+    @keyframes lblink{0%,100%{opacity:1}50%{opacity:.25}}
+
+    /* Mute hint */
+    #bvol.is-muted{color:rgba(255,69,58,.9);}
+    #bvol.is-muted svg .wave{opacity:.25;transition:opacity .2s;}
+
+    /* Quality pill */
+    #bq{width:auto !important;height:32px !important;border-radius:16px !important;padding:0 11px;gap:4px;background:rgba(255,255,255,.1);border:.5px solid rgba(255,255,255,.14);}
+    #bq:active{background:rgba(255,255,255,.2);}
+    #qlbl{font-size:12px;font-weight:600;letter-spacing:.2px;}
+    #bq svg{transition:transform .2s;}
+    #bq.open svg{transform:rotate(180deg);}
+
+    /* ================= iOS ACTION SHEET — quality ================= */
+    #qsheet-ov{
+      position:fixed;inset:0;z-index:9999;
+      background:rgba(0,0,0,.45);
+      -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+      opacity:0;pointer-events:none;transition:opacity .3s ease;
+    }
+    #qsheet-ov.open{opacity:1;pointer-events:auto;}
+    #qsheet{
+      position:fixed;bottom:0;left:0;right:0;z-index:10000;
+      max-width:420px;margin:0 auto;
+      padding:6px 10px calc(10px + var(--safe-b));
+      transform:translateY(110%);
+      transition:transform .42s var(--ease-sheet);
+    }
+    #qsheet-ov.open #qsheet{transform:translateY(0);}
+    .sheet-card{
+      background:var(--ios-elevated);
+      -webkit-backdrop-filter:blur(40px) saturate(180%);backdrop-filter:blur(40px) saturate(180%);
+      border-radius:var(--ios-radius-sheet);overflow:hidden;
+    }
+    .sheet-grabber{width:36px;height:5px;border-radius:3px;background:rgba(255,255,255,.3);margin:8px auto 4px;}
+    .sheet-title{font-size:13px;font-weight:400;color:var(--ios-text-secondary);text-align:center;padding:4px 0 8px;letter-spacing:-.1px;}
+    .qrow{
+      display:flex;align-items:center;justify-content:center;gap:8px;
+      width:100%;height:46px;font-size:17px;letter-spacing:-.2px;
+      color:var(--ios-text-primary);
+      transition:background .12s;
+    }
+    .qrow+.qrow{border-top:.5px solid var(--ios-separator);}
+    .qrow:active{background:rgba(255,255,255,.08);}
+    .qrow.sel{color:var(--ios-blue);font-weight:600;}
+    .qrow svg{width:17px;height:17px;stroke:var(--ios-blue);fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;}
+    .sheet-cancel{
+  display:flex;align-items:center;justify-content:center;
+  width:100%;
+  margin-top:8px;height:50px;font-size:17px;font-weight:600;
+  color:var(--ios-blue);
+  border-radius:var(--ios-radius-sheet);
+  background:var(--ios-material);
+  -webkit-backdrop-filter:blur(40px) saturate(180%);backdrop-filter:blur(40px) saturate(180%);
+}
+.sheet-cancel:active{background:rgba(255,255,255,.1);}
+
+    /* Error alert uses same .alert classes */
+    #err-ov{position:absolute;inset:0;z-index:11;background:rgba(0,0,0,.75);-webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);display:none;align-items:center;justify-content:center;padding:24px;}
+    #err-ov.show{display:flex;}
+  </style>
+</head>
+<body>
+
+<!-- Logo -->
+<a href="https://t.me/+vszgT_EEsf81Zjhl" class="logo-btn" target="_blank" rel="noopener noreferrer">
+  <img src="https://thumb.wikimedia.org/wikipedia/commons/thumb/8/82/Telegram_logo.svg/1280px-Telegram_logo.svg.png?utm_source=commons.wikimedia.org&utm_campaign=index&utm_content=thumbnail&_=20220101141644" alt="The Cricsters">
+</a>
+
+<!-- iOS Alert — Join prompt -->
+<div class="alert-scrim visible" id="popup">
+  <div class="alert">
+    <div class="alert-icon">
+      <svg viewBox="0 0 24 24"><path d="M9.993 15.674l-.398 5.604c.57 0 .817-.245 1.113-.54l2.67-2.557 5.53 4.047c1.014.558 1.734.264 1.987-.939l3.6-16.86c.3-1.4-.506-1.95-1.496-1.58L1.27 9.64c-1.37.53-1.35 1.29-.233 1.64l5.68 1.77 13.337-8.418c.59-.39 1.13-.175.69.215"/></svg>
+    </div>
+    <div class="alert-title">Join The Streamxcricket</div>
+    <div class="alert-message">Live matches, breaking news &amp; exclusive streams<b>@tushar_stream</b></div>
+    <div class="alert-actions">
+      <a class="alert-btn bold" id="popupJoinBtn" href="https://t.me/Tushar_Stream" target="_blank" rel="noopener noreferrer">Join Channel</a>
+      <button class="alert-btn" id="popupSkipBtn">Not Now</button>
+    </div>
+  </div>
+</div>
+
+<!-- Player -->
+<div id="player">
+  <video id="vid" autoplay muted playsinline preload="metadata"></video>
+
+  <div id="overlay">
+    <div class="spinner"></div>
+    <div class="load-label">Connecting to stream…</div>
+  </div>
+
+  <div id="bufspin"><div></div></div>
+
+  <!-- iOS Alert — Error -->
+  <div id="err-ov">
+    <div class="alert">
+      <div class="alert-icon" style="background:rgba(255,69,58,.14)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#FF453A" stroke-width="1.8" stroke-linecap="round"><path d="M18.36 6.64a9 9 0 1 1-12.73 0" fill="none"/><line x1="12" y1="2" x2="12" y2="12"/></svg>
+      </div>
+      <div class="alert-title" id="etitle">Stream Unavailable</div>
+      <div class="alert-message" id="emsg"></div>
+      <div class="alert-actions">
+        <div class="alert-retry" id="eretry" style="display:none"><span class="dot"></span><span>Retrying…</span></div>
+        <a href="https://t.me/Tushar_Stream" target="_blank" rel="noopener noreferrer" class="alert-btn">
+          <svg viewBox="0 0 24 24"><path d="M9.993 15.674l-.398 5.604c.57 0 .817-.245 1.113-.54l2.67-2.557 5.53 4.047c1.014.558 1.734.264 1.987-.939l3.6-16.86c.3-1.4-.506-1.95-1.496-1.58L1.27 9.64c-1.37.53-1.35 1.29-.233 1.64l5.68 1.77 13.337-8.418c.59-.39 1.13-.175.69.215"/></svg>
+          Contact Support
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <div id="bigplay">
+    <div class="bpbtn" id="bpbtn">
+      <svg viewBox="0 0 24 24"><path d="M8 5.14v13.72a1 1 0 0 0 1.5.87l11-6.86a1 1 0 0 0 0-1.72L9.5 4.27A1 1 0 0 0 8 5.14z"/></svg>
+    </div>
+  </div>
+
+  <div id="ctrls">
+    <div id="prog">
+      <div class="pt">
+        <div class="pbf" id="pbuf"></div>
+        <div class="ppl" id="ppl"></div>
+        <div class="pth" id="pth"></div>
+      </div>
+    </div>
+    <div id="crow">
+      <button class="cb" id="bplay" title="Play / Pause">
+        <svg viewBox="0 0 24 24" width="19" height="19" fill="currentColor" id="pico">
+          <rect x="6" y="5" width="4" height="14" rx="1.5"/><rect x="14" y="5" width="4" height="14" rx="1.5"/>
+        </svg>
+      </button>
+      <button class="cb" id="bvol" title="Mute / Unmute">
+        <svg viewBox="0 0 24 24" width="19" height="19" id="vico">
+          <path d="M4 9v6h4l5 5V4L8 9H4z" fill="currentColor"/>
+          <path class="wave" d="M16.5 8.5a5 5 0 0 1 0 7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" fill="none"/>
+          <path class="wave" d="M19 6a9 9 0 0 1 0 12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" fill="none"/>
+        </svg>
+      </button>
+      <div class="live-pill" id="livepill"><span class="ldot"></span><span id="lpitext">LIVE</span></div>
+      <div class="csp"></div>
+      <button class="cb" id="bq" title="Quality" style="display:none">
+        <span id="qlbl">–</span>
+        <svg width="11" height="11" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,3.5 5,7 8,3.5"/></svg>
+      </button>
+      <button class="cb" id="bfill" title="Fit / Fill">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" id="fillico">
+          <path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/>
+          <path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/>
+        </svg>
+      </button>
+      <button class="cb" id="bpip" title="Picture in Picture">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="3" y="5" width="18" height="14" rx="2.5"/><rect x="12.5" y="11.5" width="7" height="5" rx="1.5" fill="currentColor" stroke="none"/>
+        </svg>
+      </button>
+      <button class="cb" id="bfs" title="Fullscreen">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" id="fsico">
+          <path d="M9 4H4v5"/><path d="M15 4h5v5"/><path d="M9 20H4v-5"/><path d="M15 20h5v-5"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- iOS Action Sheet — Quality -->
+  <div id="qsheet-ov">
+    <div id="qsheet">
+      <div class="sheet-card">
+        <div class="sheet-grabber"></div>
+        <div class="sheet-title">Quality</div>
+        <div id="qsheet-list"></div>
+      </div>
+      <button class="sheet-cancel" id="qcancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ============================================================
+   CONFIG
+   ============================================================ */
+var JSON_URL  = 'https://raw.githubusercontent.com/drmlive/fancode-live-events/main/fancode.json';
+var DEFAULT_Q = '1080p';
+
+/* ============================================================
+   PARAMS
+   ============================================================ */
+var sp = new URLSearchParams(location.search);
+var matchId = sp.get('id')||'';
+
+/* ============================================================
+   DOM
+   ============================================================ */
+var vid      = document.getElementById('vid');
+var player   = document.getElementById('player');
+var overlay  = document.getElementById('overlay');
+var bufspin  = document.getElementById('bufspin');
+var errOv    = document.getElementById('err-ov');
+var ctrls    = document.getElementById('ctrls');
+var prog     = document.getElementById('prog');
+var pbuf     = document.getElementById('pbuf');
+var ppl      = document.getElementById('ppl');
+var pth      = document.getElementById('pth');
+var bplay    = document.getElementById('bplay');
+var pico     = document.getElementById('pico');
+var bvol     = document.getElementById('bvol');
+var vico     = document.getElementById('vico');
+var livepill = document.getElementById('livepill');
+var lpitext  = document.getElementById('lpitext');
+var bq       = document.getElementById('bq');
+var qlbl     = document.getElementById('qlbl');
+var bfill    = document.getElementById('bfill');
+var fillico  = document.getElementById('fillico');
+var bpip     = document.getElementById('bpip');
+var bfs      = document.getElementById('bfs');
+var fsico    = document.getElementById('fsico');
+var bigplay  = document.getElementById('bigplay');
+var bpbtn    = document.getElementById('bpbtn');
+var qsOv     = document.getElementById('qsheet-ov');
+var qsList   = document.getElementById('qsheet-list');
+var qcancel  = document.getElementById('qcancel');
+
+/* ============================================================
+   STATE
+   ============================================================ */
+var shakaPlayer = null;
+var qStreams = {}, currentQ = DEFAULT_Q;
+var isLive = true, isDragging = false, uPaused = false, hasError = false;
+var fillModeIdx = 0, isMuted = true;
+var hideTimer = null, retryTimer = null;
+var playerActivated = false;
+
+var FILL_MODES = [
+  {fit:'contain', scale:1,   title:'Fit',
+   icon:'<rect x="2" y="4" width="20" height="16" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><rect x="7" y="8" width="10" height="8" rx="1.5" fill="currentColor" opacity=".4"/>'},
+  {fit:'cover',   scale:1,   title:'Fill',
+   icon:'<rect x="2" y="4" width="20" height="16" rx="2.5" fill="currentColor" opacity=".18" stroke="currentColor" stroke-width="1.8"/><path d="M2 4l20 16M22 4L2 20" stroke="currentColor" stroke-width="1" opacity=".35"/>'},
+  {fit:'contain', scale:1.4, title:'Zoom',
+   icon:'<circle cx="10.5" cy="10.5" r="7" fill="none" stroke="currentColor" stroke-width="1.8"/><line x1="16" y1="16" x2="21.5" y2="21.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="10.5" y1="7.5" x2="10.5" y2="13.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="7.5" y1="10.5" x2="13.5" y2="10.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>'}
+];
+
+/* ============================================================
+   POPUP
+   ============================================================ */
+function closePopup(){ document.getElementById('popup').classList.remove('visible'); }
+document.getElementById('popupSkipBtn').addEventListener('click', closePopup);
+document.getElementById('popupJoinBtn').addEventListener('click', closePopup);
+
+/* ============================================================
+   OVERLAY
+   ============================================================ */
+function showLoad(){
+  hasError=false;
+  overlay.classList.remove('gone');
+  overlay.style.opacity='1';
+  overlay.style.pointerEvents='none';
+  errOv.classList.remove('show');
+}
+function hideOverlay(){
+  if(hasError) return;
+  overlay.style.opacity='0';
+  overlay.style.pointerEvents='none';
+  setTimeout(function(){overlay.classList.add('gone');},360);
+}
+function showErr(title,msg,retry){
+  hasError=true;
+  overlay.style.opacity='0';
+  overlay.style.pointerEvents='none';
+  setTimeout(function(){overlay.classList.add('gone');},360);
+  document.getElementById('etitle').textContent=title;
+  document.getElementById('emsg').textContent=msg||'';
+  document.getElementById('eretry').style.display=retry?'flex':'none';
+  errOv.classList.add('show');
+}
+
+/* ============================================================
+   BUFFERING
+   ============================================================ */
+vid.addEventListener('waiting', function(){ bufspin.style.display='block'; });
+vid.addEventListener('playing', function(){ bufspin.style.display='none'; });
+vid.addEventListener('canplay', function(){ bufspin.style.display='none'; });
+
+/* ============================================================
+   CENTER PLAY
+   ============================================================ */
+function syncBig(){
+  if(vid.paused){bigplay.classList.add('shown');bigplay.classList.remove('gone');}
+  else{bigplay.classList.remove('shown');bigplay.classList.add('gone');}
+}
+bpbtn.addEventListener('click', function(e){
+  e.stopPropagation();
+  uPaused=false;
+  playerActivated=true;
+  vid.play().catch(function(){});
+});
+vid.addEventListener('play',  syncBig);
+vid.addEventListener('pause', syncBig);
+
+/* ============================================================
+   PLAYER CLICK
+   ============================================================ */
+player.addEventListener('click', function(e){
+  if(e.target.closest('#crow')) return;
+  if(e.target.closest('.bpbtn')) return;
+  if(qsOv.classList.contains('open')){ closeQSheet(); return; }
+  if(!playerActivated){ playerActivated = true; showCtrls(); return; }
+  if(e.target === vid || e.target === player){
+    if(ctrls.classList.contains('gone')){ showCtrls(); return; }
+    togglePlay();
+  }
+});
+
+/* ============================================================
+   CONTROLS SHOW/HIDE
+   ============================================================ */
+function showCtrls(){
+  ctrls.classList.remove('gone');
+  clearTimeout(hideTimer);
+  if(!vid.paused && !qsOv.classList.contains('open')){
+    hideTimer=setTimeout(function(){ ctrls.classList.add('gone'); },3500);
+  }
+}
+player.addEventListener('mousemove', showCtrls);
+player.addEventListener('touchstart', showCtrls, {passive:true});
+showCtrls();
+
+/* ============================================================
+   PLAY / PAUSE
+   ============================================================ */
+function togglePlay(){
+  if(vid.paused){ uPaused=false; vid.play().catch(function(){}); }
+  else{ uPaused=true; vid.pause(); }
+}
+bplay.addEventListener('click', function(e){ e.stopPropagation(); togglePlay(); });
+function syncPlayIcon(){
+  pico.innerHTML=vid.paused
+    ?'<path d="M8 5.14v13.72a1 1 0 0 0 1.5.87l11-6.86a1 1 0 0 0 0-1.72L9.5 4.27A1 1 0 0 0 8 5.14z" fill="currentColor"/>'
+    :'<rect x="6" y="5" width="4" height="14" rx="1.5" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1.5" fill="currentColor"/>';
+}
+vid.addEventListener('play',  function(){ syncPlayIcon(); showCtrls(); });
+vid.addEventListener('pause', function(){ syncPlayIcon(); showCtrls(); });
+
+vid.addEventListener('pause', function(){
+  if(!vid.ended && !uPaused){
+    setTimeout(function(){ if(vid.paused&&!vid.ended&&!uPaused) vid.play().catch(function(){}); },800);
+  }
+});
+setInterval(function(){ if(vid.paused&&!vid.ended&&!uPaused) vid.play().catch(function(){}); },4000);
+
+/* ============================================================
+   MUTE
+   ============================================================ */
+bvol.addEventListener('click', function(e){
+  e.stopPropagation();
+  vid.muted=!vid.muted;
+  syncVol();
+});
+function syncVol(){
+  isMuted=vid.muted;
+  bvol.classList.toggle('is-muted', isMuted);
+  var waves=vico.querySelectorAll('.wave');
+  if(isMuted){
+    vico.innerHTML='<path d="M4 9v6h4l5 5V4L8 9H4z" fill="currentColor"/><line x1="16.5" y1="9.5" x2="22.5" y2="15.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><line x1="22.5" y1="9.5" x2="16.5" y2="15.5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>';
+  } else {
+    vico.innerHTML='<path d="M4 9v6h4l5 5V4L8 9H4z" fill="currentColor"/><path class="wave" d="M16.5 8.5a5 5 0 0 1 0 7" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" fill="none"/><path class="wave" d="M19 6a9 9 0 0 1 0 12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" fill="none"/>';
+  }
+}
+
+/* ============================================================
+   LIVE PILL
+   ============================================================ */
+livepill.addEventListener('click', function(){
+  if(!isLive||!vid.seekable||!vid.seekable.length) return;
+  var edge=vid.seekable.end(vid.seekable.length-1);
+  vid.currentTime=edge;
+  uPaused=false;
+  if(vid.paused) vid.play().catch(function(){});
+});
+setInterval(function(){
+  if(!isLive){livepill.style.display='none';return;}
+  if(!vid.seekable||!vid.seekable.length) return;
+  var edge=vid.seekable.end(vid.seekable.length-1);
+  var behind=edge-vid.currentTime>12;
+  livepill.style.cursor=behind?'pointer':'default';
+  lpitext.textContent=behind?'GO LIVE':'LIVE';
+  livepill.style.color=behind?'var(--ios-orange)':'var(--ios-red)';
+  livepill.style.background=behind?'rgba(255,159,10,.18)':'rgba(255,69,58,.18)';
+  var dot=livepill.querySelector('.ldot');
+  if(dot) dot.style.background=behind?'var(--ios-orange)':'var(--ios-red)';
+},2000);
+
+/* ============================================================
+   PROGRESS
+   ============================================================ */
+vid.addEventListener('timeupdate', function(){
+  if(isDragging) return;
+  var p=(vid.duration&&isFinite(vid.duration))?vid.currentTime/vid.duration*100:99.5;
+  setP(p);
+});
+vid.addEventListener('progress', function(){
+  if(!vid.buffered.length||!isFinite(vid.duration)) return;
+  pbuf.style.width=(vid.buffered.end(vid.buffered.length-1)/vid.duration*100)+'%';
+});
+vid.addEventListener('loadedmetadata', function(){
+  isLive=!isFinite(vid.duration)||vid.duration>86400;
+  if(!isLive) livepill.style.display='none';
+});
+function setP(p){p=Math.max(0,Math.min(100,p));ppl.style.width=p+'%';pth.style.left=p+'%';}
+function spct(e){var r=prog.getBoundingClientRect(),x=(e.touches?e.touches[0].clientX:e.clientX)-r.left;return Math.max(0,Math.min(1,x/r.width));}
+function applySeek(f){if(!isFinite(vid.duration)) return;vid.currentTime=f*vid.duration;setP(f*100);}
+prog.addEventListener('mousedown',  function(e){isDragging=true;prog.classList.add('drag');applySeek(spct(e));});
+prog.addEventListener('touchstart', function(e){isDragging=true;prog.classList.add('drag');applySeek(spct(e));},{passive:true});
+document.addEventListener('mousemove',  function(e){if(isDragging) applySeek(spct(e));});
+document.addEventListener('touchmove',  function(e){if(isDragging){e.preventDefault();applySeek(spct(e));}},{passive:false});
+document.addEventListener('mouseup',    function(){if(isDragging){isDragging=false;prog.classList.remove('drag');}});
+document.addEventListener('touchend',   function(){if(isDragging){isDragging=false;prog.classList.remove('drag');}});
+
+/* ============================================================
+   QUALITY — iOS ACTION SHEET
+   ============================================================ */
+var CHECK='<svg viewBox="0 0 24 24"><polyline points="4.5 12.5 9.5 17.5 19.5 6.5"/></svg>';
+
+function openQSheet(){
+  var avail=['1080p','720p','540p','480p','360p','240p'].filter(function(q){return qStreams[q];});
+  if(!avail.length) return;
+  qsList.innerHTML='';
+  avail.forEach(function(q){
+    var row=document.createElement('button');
+    row.className='qrow'+(q===currentQ?' sel':'');
+    row.innerHTML='<span>'+q+'</span>'+(q===currentQ?CHECK:'');
+    row.addEventListener('click',function(e){
+      e.stopPropagation();
+      var v=q;
+      closeQSheet();
+      if(v!==currentQ) setTimeout(function(){switchQ(v);},280);
+    });
+    qsList.appendChild(row);
+  });
+  bq.classList.add('open');
+  qsOv.classList.add('open');
+  clearTimeout(hideTimer);
+}
+function closeQSheet(){
+  bq.classList.remove('open');
+  qsOv.classList.remove('open');
+  showCtrls();
+}
+bq.addEventListener('click', function(e){
+  e.stopPropagation();
+  if(qsOv.classList.contains('open')) closeQSheet(); else openQSheet();
+});
+qcancel.addEventListener('click', closeQSheet);
+qsOv.addEventListener('click', function(e){ if(e.target===qsOv) closeQSheet(); });
+document.addEventListener('keydown', function(e){ if(e.key==='Escape') closeQSheet(); });
+
+function switchQ(q){
+  if(!qStreams[q]) return;
+  currentQ=q; qlbl.textContent=q;
+  loadStream(qStreams[q],[]);
+}
+
+/* ============================================================
+   FILL / FIT / ZOOM
+   ============================================================ */
+function applyFillMode(idx){
+  var m=FILL_MODES[idx];
+  vid.style.objectFit=m.fit;
+  vid.style.transform=m.scale!==1?'scale('+m.scale+')':'none';
+  fillico.innerHTML=m.icon;
+  bfill.title=m.title;
+}
+applyFillMode(0);
+bfill.addEventListener('click', function(e){
+  e.stopPropagation();
+  fillModeIdx=(fillModeIdx+1)%FILL_MODES.length;
+  applyFillMode(fillModeIdx);
+});
+
+/* ============================================================
+   PIP
+   ============================================================ */
+if(!document.pictureInPictureEnabled) bpip.style.display='none';
+bpip.addEventListener('click', function(e){
+  e.stopPropagation();
+  if(document.pictureInPictureElement) document.exitPictureInPicture().catch(function(){});
+  else vid.requestPictureInPicture().catch(function(){});
+});
+
+/* ============================================================
+   FULLSCREEN
+   ============================================================ */
+bfs.addEventListener('click', function(e){
+  e.stopPropagation();
+  var inFs=!!(document.fullscreenElement||document.webkitFullscreenElement||document.mozFullScreenElement);
+  if(!inFs){
+    var p=player;
+    var req=p.requestFullscreen||p.webkitRequestFullscreen||p.mozRequestFullScreen;
+    if(req){ req.call(p).then(function(){if(screen.orientation&&screen.orientation.lock) screen.orientation.lock('landscape').catch(function(){});}).catch(function(){if(vid.webkitEnterFullscreen) vid.webkitEnterFullscreen();}); }
+    else if(vid.webkitEnterFullscreen){ vid.webkitEnterFullscreen(); }
+  } else {
+    var ex=document.exitFullscreen||document.webkitExitFullscreen||document.mozCancelFullScreen;
+    if(ex) ex.call(document).catch(function(){});
+    if(screen.orientation&&screen.orientation.unlock) screen.orientation.unlock();
+  }
+});
+function syncFs(){
+  var inFs=!!(document.fullscreenElement||document.webkitFullscreenElement||document.mozFullScreenElement);
+  fsico.innerHTML=inFs
+    ?'<path d="M4 9V4h5"/><path d="M20 9V4h-5"/><path d="M4 15v5h5"/><path d="M20 15v5h-5"/>'
+    :'<path d="M9 4H4v5"/><path d="M15 4h5v5"/><path d="M9 20H4v-5"/><path d="M15 20h5v-5"/>';
+}
+['fullscreenchange','webkitfullscreenchange','mozfullscreenchange'].forEach(function(e){document.addEventListener(e,syncFs);});
+
+/* ============================================================
+   SHAKA LOADER
+   ============================================================ */
+async function tryShaka(url){
+  if(shakaPlayer){try{await shakaPlayer.destroy();}catch(e){}shakaPlayer=null;}
+  shakaPlayer=new shaka.Player();
+  await shakaPlayer.attach(vid);
+  shakaPlayer.configure({streaming:{bufferingGoal:10,rebufferingGoal:2,safeSeekOffset:5,lowLatencyMode:true}});
+  shakaPlayer.getNetworkingEngine().registerRequestFilter(function(t,req){req.allowCrossSiteCredentials=true;});
+  await shakaPlayer.load(url);
+}
+
+async function loadStream(url,fallbacks){
+  hasError=false;
+  shaka.polyfill.installAll();
+  var all=[url].concat((fallbacks||[]).filter(function(u){return u&&u!==url;}));
+  var lastErr=null;
+
+  if(shaka.Player.isBrowserSupported()){
+    for(var i=0;i<all.length;i++){
+      if(!all[i]) continue;
+      try{await tryShaka(all[i]);lastErr=null;break;}
+      catch(e){
+        var hs=(e.data&&e.data[1])?' (HTTP '+e.data[1]+')':'';
+        lastErr='Shaka Error '+(e.code||'?')+hs;
+        if(shakaPlayer){try{await shakaPlayer.destroy();}catch(x){}shakaPlayer=null;}
+      }
+    }
+  } else {lastErr='unsupported';}
+
+  if(lastErr&&vid.canPlayType('application/vnd.apple.mpegurl')){
+    vid.src=all[0]||url; lastErr=null;
+  }
+  if(lastErr){showErr('Playback Error',lastErr,false);return;}
+
+  vid.muted=true;
+  await vid.play().catch(function(){});
+  syncVol();
+
+  var onP=function(){vid.removeEventListener('playing',onP);hideOverlay();};
+  vid.addEventListener('playing',onP);
+  setTimeout(function(){if(!hasError) hideOverlay();},9000);
+}
+
+/* ============================================================
+   JSON FETCH
+   ============================================================ */
+function fetchJSON(url){
+  return new Promise(function(res,rej){
+    var x=new XMLHttpRequest();
+    x.open('GET',url,true);
+    x.timeout=12000;
+    x.onreadystatechange=function(){
+      if(x.readyState!==4) return;
+      if(x.status>=200&&x.status<300){try{res(JSON.parse(x.responseText));}catch(e){rej(new Error('JSON parse error'));}}
+      else rej(new Error('HTTP '+x.status));
+    };
+    x.onerror=function(){rej(new Error('Network error'));};
+    x.ontimeout=function(){rej(new Error('Timeout'));};
+    x.send();
+  });
+}
+
+/* ============================================================
+   RESOLVE MATCH
+   ============================================================ */
+function resolve(data){
+  var list = (data && Array.isArray(data.matches)) ? data.matches : [];
+  if(!list.length) throw new Error('No matches in JSON');
+
+  var m = null;
+  for(var i=0;i<list.length;i++){
+    if(String(list[i].match_id) === String(matchId)){
+      m = list[i];
+      break;
+    }
+  }
+  if(!m) throw new Error('Match "'+matchId+'" not found ('+list.length+' total)');
+
+  if(m.status !== 'LIVE'){
+    throw new Error('Match is not live yet. Status: ' + m.status);
+  }
+
+  var url = m.adfree_url || m.dai_url;
+  if(!url) throw new Error('No stream URL available for this match');
+
+  var streams = {};
+  if(url.indexOf('1080p') !== -1){
+    streams['1080p'] = url;
+    streams['720p']  = url.replace('1080p','720p');
+    streams['540p']  = url.replace('1080p','540p');
+    streams['480p']  = url.replace('1080p','480p');
+    streams['360p']  = url.replace('1080p','360p');
+    streams['240p']  = url.replace('1080p','240p');
+  } else if(url.indexOf('720p') !== -1){
+    streams['720p']  = url;
+    streams['540p']  = url.replace('720p','540p');
+    streams['480p']  = url.replace('720p','480p');
+    streams['360p']  = url.replace('720p','360p');
+    streams['240p']  = url.replace('720p','240p');
+  } else {
+    streams['1080p'] = url;
+  }
+
+  return {type:'multi', streams:streams, match:m};
+}
+
+/* ============================================================
+   BOOT
+   ============================================================ */
+(function start(){
+  showLoad();
+  if(!matchId){showErr('Missing match ID','URL: ?id=MATCH_ID (e.g., ?id=4249273_ENG)',false);return;}
+
+  fetchJSON(JSON_URL).then(function(data){
+    var r;
+    try{r=resolve(data);}
+    catch(e){showErr('Stream Unavailable',e.message,true);retryTimer=setTimeout(start,8000);return;}
+
+    if(r.type==='multi'){
+      qStreams=r.streams;
+      var url = r.streams['1080p'] || r.streams['720p'] || r.streams['540p'] || r.streams['480p'] || r.streams['360p'] || r.streams['240p'];
+      if(!url){showErr('No stream URL','All quality URLs empty for this match',true);return;}
+      currentQ = r.streams['1080p'] ? '1080p' : (r.streams['720p'] ? '720p' : '540p');
+      qlbl.textContent=currentQ;
+      bq.style.display='';
+
+      if(r.match && r.match.match_name){
+        document.title = r.match.match_name + ' · The Cricsters';
+      }
+
+      loadStream(url,[]);
+    } else {
+      bq.style.display='none';
+      loadStream(r.url,[]);
+    }
+  }).catch(function(e){showErr('Could not load data',e.message,true);retryTimer=setTimeout(start,8000);});
+})();
+})();
+</script>
+</body>
+</html>
